@@ -102,7 +102,7 @@ class Symbols:
 class Strategy():
 	def __init__(self, symbol, market_cap, target, latest_price, \
 		jan_1st_price, market, percent_down, discount_from_jan, \
-		discount_from_target, mid_cap_size):
+		discount_from_target, mid_cap_size, strategy):
 
 		self.symbol = symbol
 		self.market_cap = market_cap
@@ -114,16 +114,20 @@ class Strategy():
 		self.discount_from_jan = discount_from_jan
 		self.discount_from_target = discount_from_target
 		self.mid_cap_size = mid_cap_size
+		self.strategy = strategy
 		self.document_name = (str(self.market) \
+			+ '_' \
+			+ str(self.strategy) \
 			+ '_' \
 			+ str(mid_cap_size) \
 			+ '_cap_size_' \
 			+ str(100 * self.discount_from_jan) \
-			+ '_percent_down_from_jan' \
-			+ '_analyst_target_higher_than_' \
+			+ '_percent_from_jan' \
+			+ '_analyst_target_difference_of_' \
 			+ str(100 * self.discount_from_target) \
 			+ '_percent.txt')
 
+class UnderpricedStocksStrategy(Strategy):
 	def execute_strategy(self):
 		"""
 		This strategy tests:
@@ -149,8 +153,11 @@ class Strategy():
 			return False
 
 	def is_company_target_at_least_X_percent_higher(self):
-		if (self.target - self.latest_price) / self.target >= self.discount_from_target:
-			return True
+		if self.target != 0:
+			if (self.target - self.latest_price) / self.target >= self.discount_from_target:
+				return True
+			else:
+				return False
 		else:
 			return False
 
@@ -158,5 +165,46 @@ class Strategy():
 		"""Opens the document and werites info"""
 		f = open(self.document_name, "a+")
 		f.write("{} {} {} {} {}\r".format(self.symbol, self.market_cap, self.latest_price, self.target, self.percent_down))
+		print("#####################################################Created record for {}".format(self.symbol))
+		f.close()
+
+class OverpricedStocksStrategy(Strategy):
+	def execute_strategy(self):
+		"""
+		This strategy tests:
+		1) Is the company market cap a mid-cap
+		2) Is the company at least 50% down from january high
+		3) Is the company target at least 20% below analyst target
+		"""
+		if (self.is_market_cap_mid_size() and \
+			self.is_price_at_most_X_percent_down() and \
+			self.is_company_target_at_least_X_percent_higher_than_target()):
+			self.create_record()
+
+	def is_market_cap_mid_size(self):
+		if self.market_cap <= float(self.mid_cap_size):
+			return True
+		else:
+			return False
+
+	def is_price_at_most_X_percent_down(self):
+		if self.percent_down <= self.discount_from_jan:
+			return True
+		else:
+			return False
+
+	def is_company_target_at_least_X_percent_higher_than_target(self):
+		if self.target == 0:
+			return True
+		else:
+			if (self.latest_price - self.target) / self.target >= self.discount_from_target:
+				return True
+			else:
+				return False
+
+	def create_record(self):
+		"""Opens the document and werites info"""
+		f = open(self.document_name, "a+")
+		f.write("{} | {} | {} | {} | {}\r".format(self.symbol, self.market_cap, self.latest_price, self.target, self.percent_down))
 		print("#####################################################Created record for {}".format(self.symbol))
 		f.close()
